@@ -113,6 +113,8 @@ const PropertiesModal = ({
   const saveLabel = onlyApply ? t('Apply') : t('Save');
   const [tags, setTags] = useState<TagType[]>([]);
   const categoricalSchemeRegistry = getCategoricalSchemeRegistry();
+  const [certifiedBy, setCertifiedBy] = useState('');
+  const [certifiedByOwners, setCertifiedByOwners] = useState([]);
 
   const tagsAsSelectValues = useMemo(() => {
     const selectTags = tags.map(tag => ({
@@ -194,6 +196,12 @@ const PropertiesModal = ({
       setOwners(owners);
       setRoles(roles);
       setColorScheme(metadata.color_scheme);
+
+      setCertifiedBy(certified_by);
+      const initialCertifiedByOwners = owners.filter(owner =>
+        (certified_by || '').split(', ').includes(owner.full_name)
+      );
+      setCertifiedByOwners(initialCertifiedByOwners);
 
       const metaDataCopy = omit(metadata, [
         'positions',
@@ -345,8 +353,9 @@ const PropertiesModal = ({
   };
 
   const onFinish = () => {
-    const { title, slug, certifiedBy, certificationDetails } =
+    const { title, slug, certificationDetails } =
       form.getFieldsValue();
+    const certifiedBy = form.getFieldValue('certifiedBy');
     let currentColorScheme = colorScheme;
     let colorNamespace = '';
     let currentJsonMetadata = jsonMetadata;
@@ -422,6 +431,7 @@ const PropertiesModal = ({
 
     const moreOnSubmitProps: { roles?: Roles } = {};
     const morePutProps: { roles?: number[] } = {};
+
     if (isFeatureEnabled(FeatureFlag.DashboardRbac)) {
       moreOnSubmitProps.roles = roles;
       morePutProps.roles = (roles || []).map(r => r.id);
@@ -565,7 +575,7 @@ const PropertiesModal = ({
         <Row>
           <Col xs={24} md={12}>
             <ColorSchemeControlWrapper
-              hasCustomLabelColors={hasCustomLabelColors}
+              hasCustomLabelsColor={hasCustomLabelColors}
               onChange={onColorSchemeChange}
               colorScheme={colorScheme}
               labelMargin={4}
@@ -629,6 +639,14 @@ const PropertiesModal = ({
     setTags([...uniqueTags.map(t => ({ name: t }))]);
   };
 
+  useEffect(() => {
+    // Set initial state for certifiedByOwners based on form values
+    const initialCertifiedByOwners = handleOwnersSelectValue().filter(owner =>
+      (form.getFieldValue('certifiedBy') || '').split(', ').includes(owner.label)
+    );
+    setCertifiedByOwners(initialCertifiedByOwners);
+  }, [form]);
+
   return (
     <Modal
       show={show}
@@ -670,6 +688,9 @@ const PropertiesModal = ({
       <AntdForm
         form={form}
         onFinish={onFinish}
+        initialValues={{
+          certifiedBy: form.getFieldValue('certifiedBy') || '', // Ensure the initial value is set
+        }}
         data-test="dashboard-edit-properties-form"
         layout="vertical"
         initialValues={dashboardInfo}
@@ -709,12 +730,49 @@ const PropertiesModal = ({
         <Row gutter={16}>
           <Col xs={24} md={12}>
             <StyledFormItem label={t('Certified by')} name="certifiedBy">
-              <Input type="text" disabled={isLoading} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <AsyncSelect
+                  mode="multiple"
+                  placeholder={t('Select Certifiers ...')}
+                  ariaLabel={t('Select Certifiers')}
+                  disabled={isLoading}
+                  onChange={selectedOwners => {
+                    const concatenatedNames = selectedOwners
+                      .map(owner => owner.label)
+                      .join(', ');
+
+                    // Update state to trigger re-render of the Input field
+                    setCertifiedBy(concatenatedNames);
+
+                    // Also update the form field value for saving purposes
+                    form.setFieldsValue({ certifiedBy: concatenatedNames });
+                    setCertifiedByOwners(selectedOwners);
+                  }}
+                  options={(input, page, pageSize) =>
+                    loadAccessOptions('owners', input, page, pageSize)
+                  }
+                  value={certifiedByOwners}
+                />
+              </div>
+            </StyledFormItem>
+          </Col>
+          <Col xs={24} md={12}>
+            <StyledFormItem label={t('Certified by')} name="certifiedBy">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <Input
+                  type="text"
+                  readOnly
+                  value={certifiedBy}
+                  disabled={isLoading}
+                />
+              </div>
             </StyledFormItem>
             <p className="help-block">
-              {t('Person or group that has certified this dashboard.')}
+              {t('Users that have certified this dashboard. This is a read-only field.')}
             </p>
           </Col>
+        </Row>
+        <Row gutter={16}>
           <Col xs={24} md={12}>
             <StyledFormItem
               label={t('Certification details')}

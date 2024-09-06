@@ -393,19 +393,19 @@ const DatasetList: FunctionComponent<DatasetListProps> = ({
         disableSortBy: true,
         size: 'lg',
       },
-      {
-        Cell: ({
-          row: {
-            original: {
-              changed_on_delta_humanized: changedOn,
-              changed_by: changedBy,
-            },
-          },
-        }: any) => <ModifiedInfo date={changedOn} user={changedBy} />,
-        Header: t('Last modified'),
-        accessor: 'changed_on_delta_humanized',
-        size: 'xl',
-      },
+      //{
+      //  Cell: ({
+      //    row: {
+      //      original: {
+      //        changed_on_delta_humanized: changedOn,
+      //        changed_by: changedBy,
+      //      },
+      //    },
+      //  }: any) => <ModifiedInfo date={changedOn} user={changedBy} />,
+      //  Header: t('Last modified'),
+      //  accessor: 'changed_on_delta_humanized',
+      //  size: 'xl',
+      //},
       {
         accessor: 'sql',
         hidden: true,

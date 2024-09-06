@@ -194,17 +194,17 @@ const RightMenu = ({
           disable: isAdmin && !allowUploads,
         },
         {
-          label: t('Upload columnar file to database'),
-          name: 'Upload a Columnar file',
-          url: '/columnartodatabaseview/form',
-          perm: canUploadColumnar && showUploads,
-          disable: isAdmin && !allowUploads,
-        },
-        {
           label: t('Upload Excel file to database'),
           name: 'Upload Excel',
           url: '/exceltodatabaseview/form',
           perm: canUploadExcel && showUploads,
+          disable: isAdmin && !allowUploads,
+        },
+        {
+          label: t('Upload columnar file to database'),
+          name: 'Upload a Columnar file',
+          url: '/columnartodatabaseview/form',
+          perm: canUploadColumnar && showUploads,
           disable: isAdmin && !allowUploads,
         },
       ],
@@ -338,6 +338,10 @@ const RightMenu = ({
 
   const handleDatabaseAdd = () => setQuery({ databaseAdded: true });
 
+  const handleLogout = () => {
+    localStorage.removeItem('redux');
+  };
+
   const theme = useTheme();
 
   return (
@@ -364,6 +368,13 @@ const RightMenu = ({
           <span css={tagStyles}>{environmentTag.text}</span>
         </Label>
       )}
+      <Menu mode="horizontal" selectable={false}>
+        <Menu.Item key="getting-started">
+          <a href="https://exactech.sharepoint.com/:b:/s/predictplus/ESROlwG2HytGrfam2DqN-N8BpkrPdJQqSrEEyqoOaab_yg?e=NeY4e5" target="_blank" rel="noopener noreferrer">
+            {t('Getting Started')}
+          </a>
+        </Menu.Item>
+      </Menu>
       <Menu
         selectable={false}
         mode="horizontal"
@@ -478,7 +489,7 @@ const RightMenu = ({
                   <a href={navbarRight.user_info_url}>{t('Info')}</a>
                 </Menu.Item>
               )}
-              <Menu.Item key="logout">
+              <Menu.Item key="logout" onClick={handleLogout}>
                 <a href={navbarRight.user_logout_url}>{t('Logout')}</a>
               </Menu.Item>
             </Menu.ItemGroup>,

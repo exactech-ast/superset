@@ -68,6 +68,12 @@ const StyledHeader = styled.header`
           height: 100%;
           object-fit: contain;
         }
+        &:focus {
+          border-color: transparent;
+        }
+        &:focus-visible {
+          border-color: ${theme.colors.primary.dark1};
+        }
       }
       .navbar-brand-text {
         border-left: 1px solid ${theme.colors.grayscale.light2};
@@ -310,7 +316,7 @@ export function Menu({
                 <img src={brand.icon} alt={brand.alt} />
               </GenericLink>
             ) : (
-              <a className="navbar-brand" href={brand.path}>
+              <a className="navbar-brand" href={brand.path} tabIndex={-1}>
                 <img src={brand.icon} alt={brand.alt} />
               </a>
             )}
@@ -405,6 +411,15 @@ export default function MenuWrapper({ data, ...rest }: MenuProps) {
       settings.push(newItem);
     }
   });
+
+  if (cleanedMenu.length != 0) {
+    cleanedMenu.push(
+      {
+        label: 'Data Assistant',
+        url: '/',
+      }
+    )  
+  }
 
   newMenuData.menu = cleanedMenu;
   newMenuData.settings = settings;
