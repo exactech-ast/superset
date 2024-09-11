@@ -26,9 +26,11 @@ jobs:
       run: echo ${{ secrets.AZURE_ACR_PASSWORD }} | docker login irisdevacr.azurecr.io -u ${{ secrets.AZURE_ACR_USERNAME }} --password-stdin
 
     - name: Build and Push Docker Image
-      env:
-        SHORT_SHA=${GITHUB_SHA::7}
-        IMAGE_TAG="prod-${SHORT_SHA}"
       run: |
+        # Extract the first 7 characters of the commit SHA
+        SHORT_SHA="${GITHUB_SHA:0:7}"
+        IMAGE_TAG="prod-${SHORT_SHA}"
+
+        # Build and push the Docker image
         docker build -t irisdevacr.azurecr.io/exactech-superset:${{ env.IMAGE_TAG }} .
         docker push irisdevacr.azurecr.io/exactech-superset::${{ env.IMAGE_TAG }}
