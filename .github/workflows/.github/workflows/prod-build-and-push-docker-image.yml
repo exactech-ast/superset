@@ -1,0 +1,33 @@
+name: Build and Push Docker Image to ACR
+
+on:
+  push:
+    branches:
+      - datamesh-prod  # Replace with the branch name you want to trigger the workflow
+  workflow_dispatch: # This allows you to manually trigger the workflow from the Actions tab
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to Azure Container Registry
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }} # Add Azure credentials in GitHub Secrets
+
+    - name: Azure Container Registry Login
+      run: echo ${{ secrets.AZURE_ACR_PASSWORD }} | docker login irisdevacr.azurecr.io -u ${{ secrets.AZURE_ACR_USERNAME }} --password-stdin
+
+    - name: Build and Push Docker Image
+      env:
+        IMAGE_TAG: "prod-${{ github.sha }}"  # Prefixing the SHA with 'prod-'
+      run: |
+        docker build -t irisdevacr.azurecr.io/exactech-superset:${{ env.IMAGE_TAG }} .
+        docker push irisdevacr.azurecr.io/exactech-superset::${{ env.IMAGE_TAG }}
