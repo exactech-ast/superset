@@ -29,8 +29,8 @@ jobs:
       env:
         GITHUB_SHA: ${{ github.sha }}  # Pass the commit SHA as an environment variable
       run: |
-        # Ensure the SHA is trimmed to the first 7 characters
-        SHORT_SHA=${GITHUB_SHA:0:7}
+        # Extract the first 7 characters of the commit SHA
+        SHORT_SHA="${GITHUB_SHA:0:7}"
 
         # Check if SHORT_SHA is not empty
         if [ -z "$SHORT_SHA" ]; then
@@ -38,9 +38,9 @@ jobs:
           exit 1
         fi
 
-        # Construct the Docker image tag
+        # Construct the Docker image tag with the prefix
         IMAGE_TAG="prod-${SHORT_SHA}"
-        
+
         # Build and push the Docker image
         docker build -t irisdevacr.azurecr.io/exactech-superset:${{ env.IMAGE_TAG }} .
         docker push irisdevacr.azurecr.io/exactech-superset::${{ env.IMAGE_TAG }}
