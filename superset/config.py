@@ -206,12 +206,12 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 # or use `SUPERSET_SECRET_KEY` environment variable.
 # Use a strong complex alphanumeric string and use a tool to help you generate
 # a sufficiently random sequence, ex: openssl rand -base64 42"
-SECRET_KEY = 'kVMe0m14p/xImViJTyzXLlcRZspsrZp6OjYpypUlYfUf/iBPq0sYDlQR' #os.environ.get("SUPERSET_SECRET_KEY") or CHANGE_ME_SECRET_KEY
+SECRET_KEY = '8t9P6JYoyLHmEbBZ5bcr7auPFjw+qd7DvyaJlLDMbsmVz4yisVtUu7qf' #os.environ.get("SUPERSET_SECRET_KEY") or CHANGE_ME_SECRET_KEY
 
 # The SQLAlchemy connection string.
 #SQLALCHEMY_DATABASE_URI = (
 #    f"""sqlite:///{os.path.join(DATA_DIR, "superset.db")}?check_same_thread=false"""
-SQLALCHEMY_DATABASE_URI = "mysql://datamesh:jnZDfM123@datamesh.mysql.database.azure.com/datamesh_metadata_dev"
+SQLALCHEMY_DATABASE_URI = "mysql://datamesh:jnZDfM123@datamesh.mysql.database.azure.com/superset_metadata_dev"
 # SQLALCHEMY_DATABASE_URI = 'mysql://myapp@localhost/myapp'
 # SQLALCHEMY_DATABASE_URI = 'postgresql://root:password@localhost/myapp'
 
@@ -348,10 +348,31 @@ FAB_API_SWAGGER_UI = True
 # AUTH_DB : Is for database (username/password)
 # AUTH_LDAP : Is for LDAP
 # AUTH_REMOTE_USER : Is for using REMOTE_USER from web server
-AUTH_TYPE = AUTH_DB
+AUTH_TYPE = AUTH_OAUTH
+
+OAUTH_PROVIDERS = [
+    {
+        'name':'azure',
+        'icon':'fa-windows',
+        'token_key':'access_token',
+        'remote_app':{
+            'client_id':'a672ffa0-cef3-4fa4-bf4a-06c25c6ac88c',
+            'client_secret':'sH~8Q~bDj7jjYfJaVIY5M_3fjGCtaVrjd0CTWb4~',
+            'api_base_url':'https://login.microsoftonline.com/9adaab1d-bd58-40a7-9255-69ab5f6c3189/oauth2',
+            'client_kwargs':{
+                'scope': 'User.read name preferred_username email profile upn',
+                "resource": "a672ffa0-cef3-4fa4-bf4a-06c25c6ac88c",
+                "verify_signature": False
+            },
+            "request_token_url": None,
+            'access_token_url':'https://login.microsoftonline.com/9adaab1d-bd58-40a7-9255-69ab5f6c3189/oauth2/token',
+            'authorize_url':'https://login.microsoftonline.com/9adaab1d-bd58-40a7-9255-69ab5f6c3189/oauth2/authorize',
+        },
+    },
+]
 
 # Uncomment to setup Full admin role name
-AUTH_ROLE_ADMIN = 'Admin'
+# AUTH_ROLE_ADMIN = 'Admin'
 
 #AUTH_ROLES_MAPPING = {
 #    "superset_user": ["Gamma","Alpha"],
@@ -365,7 +386,7 @@ AUTH_ROLE_PUBLIC = 'Public'
 AUTH_USER_REGISTRATION = True
 
 # The default user self registration role
-AUTH_USER_REGISTRATION_ROLE = "Admin"
+AUTH_USER_REGISTRATION_ROLE = "Reader"
 
 # When using LDAP Auth, setup the LDAP server
 # AUTH_LDAP_SERVER = "ldap://ldapserver.new"
