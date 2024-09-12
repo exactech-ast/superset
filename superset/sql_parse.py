@@ -125,7 +125,7 @@ SQLGLOT_DIALECTS = {
     # "pinot": ???
     "postgresql": Dialects.POSTGRES,
     "presto": Dialects.PRESTO,
-    "pydoris": Dialects.DORIS,
+    "pydoris": Dialects.Doris,
     "redshift": Dialects.REDSHIFT,
     # "risingwave": ???
     # "rockset": ???
