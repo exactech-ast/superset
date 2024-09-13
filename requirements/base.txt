@@ -350,7 +350,7 @@ sqlalchemy-utils==0.38.3
     # via
     #   apache-superset
     #   flask-appbuilder
-sqlglot==20.10.0
+sqlglot==20.7.0
     # via apache-superset
 sqlparse
     # via apache-superset
