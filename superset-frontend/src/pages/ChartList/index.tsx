@@ -71,7 +71,6 @@ import ChartCard from 'src/features/charts/ChartCard';
 import { UserWithPermissionsAndRoles } from 'src/types/bootstrapTypes';
 import { findPermission } from 'src/utils/findPermission';
 import { DashboardCrossLinks } from 'src/components/ListView/DashboardCrossLinks';
-import { ModifiedInfo } from 'src/components/AuditInfo';
 import { QueryObjectColumns } from 'src/views/CRUD/types';
 
 const FlexRowContainer = styled.div`
