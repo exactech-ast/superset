@@ -431,19 +431,19 @@ function ChartList(props: ChartListProps) {
         disableSortBy: true,
         size: 'xl',
       },
-      {
-        Cell: ({
-          row: {
-            original: {
-              changed_on_delta_humanized: changedOn,
-              changed_by: changedBy,
-            },
-          },
-        }: any) => <ModifiedInfo date={changedOn} user={changedBy} />,
-        Header: t('Last modified'),
-        accessor: 'last_saved_at',
-        size: 'xl',
-      },
+      // {
+      //   Cell: ({
+      //     row: {
+      //       original: {
+      //         changed_on_delta_humanized: changedOn,
+      //         changed_by: changedBy,
+      //       },
+      //     },
+      //   }: any) => <ModifiedInfo date={changedOn} user={changedBy} />,
+      //   Header: t('Last modified'),
+      //   accessor: 'last_saved_at',
+      //   size: 'xl',
+      // },
       {
         Cell: ({ row: { original } }: any) => {
           const handleDelete = () =>
