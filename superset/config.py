@@ -215,12 +215,14 @@ SQLALCHEMY_DATABASE_URI = "mysql://datamesh:jnZDfM123@datamesh.mysql.database.az
 # SQLALCHEMY_DATABASE_URI = 'mysql://myapp@localhost/myapp'
 # SQLALCHEMY_DATABASE_URI = 'postgresql://root:password@localhost/myapp'
 
-# The default MySQL isolation level is REPEATABLE READ whereas the default PostgreSQL
-# isolation level is READ COMMITTED. All backends should use READ COMMITTED (or similar)
-# to help ensure consistent behavior.
-SQLALCHEMY_ENGINE_OPTIONS = {
-    "isolation_level": "SERIALIZABLE",  # SQLite does not support READ COMMITTED.
-}
+# This config is exposed through flask-sqlalchemy, and can be used to set your metadata
+# database connection settings. You can use this to set arbitrary connection settings
+# that may be specific to the database engine you are using.
+# Note that you can use this to set the isolation level of your database, as in
+# `SQLALCHEMY_ENGINE_OPTIONS = {"isolation_level": "READ COMMITTED"}`
+# Also note that we recommend READ COMMITTED for regular operation.
+# Find out more here https://flask-sqlalchemy.palletsprojects.com/en/3.1.x/config/
+SQLALCHEMY_ENGINE_OPTIONS = {}
 
 # In order to hook up a custom password store for all SQLALCHEMY connections
 # implement a function that takes a single argument of type 'sqla.engine.url',
@@ -1090,6 +1092,10 @@ SQLLAB_ASYNC_TIME_LIMIT_SEC = int(timedelta(hours=6).total_seconds())
 # timeout.
 SQLLAB_QUERY_COST_ESTIMATE_TIMEOUT = int(timedelta(seconds=10).total_seconds())
 
+# Timeout duration for SQL Lab fetching query results by the resultsKey.
+# 0 means no timeout.
+SQLLAB_QUERY_RESULT_TIMEOUT = 0
+
 # The cost returned by the databases is a relative value; in order to map the cost to
 # a tangible value you need to define a custom formatter that takes into consideration
 # your specific infrastructure. For example, you could analyze queries a posteriori by
@@ -1765,6 +1771,15 @@ GUEST_TOKEN_HEADER_NAME = "X-GuestToken"
 GUEST_TOKEN_JWT_EXP_SECONDS = 300  # 5 minutes
 # Guest token audience for the embedded superset, either string or callable
 GUEST_TOKEN_JWT_AUDIENCE: Callable[[], str] | str | None = None
+
+# A callable that can be supplied to do extra validation of guest token configuration
+# for example certain RLS parameters:
+# lambda x: len(x['rls']) == 1 and "tenant_id=" in x['rls'][0]['clause']
+#
+# Takes the GuestTokenUser dict as an argument
+# Return False from the callable to return a HTTP 400 to the user.
+
+GUEST_TOKEN_VALIDATOR_HOOK = None
 
 # A SQL dataset health check. Note if enabled it is strongly advised that the callable
 # be memoized to aid with performance, i.e.,

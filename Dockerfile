@@ -68,6 +68,17 @@ RUN if [ "$DEV_MODE" = "false" ]; then \
         echo "Skipping 'npm run ${BUILD_CMD}' in dev mode"; \
     fi
 
+# This copies the .po files needed for translation
+RUN mkdir -p /app/superset/translations
+COPY superset/translations /app/superset/translations
+# Compiles .json files from the .po files, then deletes the .po files
+RUN if [ "$DEV_MODE" = "false" ]; then \
+        npm run build-translation; \
+    else \
+        echo "Skipping translations in dev mode"; \
+    fi
+RUN rm /app/superset/translations/*/LC_MESSAGES/*.po
+RUN rm /app/superset/translations/messages.pot
 
 ######################################################################
 # Final lean image...
@@ -97,7 +108,7 @@ RUN mkdir -p ${PYTHONPATH} superset/static requirements superset-frontend apache
     && chown -R superset:superset ./* \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --chown=superset:superset setup.py MANIFEST.in README.md ./
+COPY --chown=superset:superset pyproject.toml setup.py MANIFEST.in README.md ./
 # setup.py uses the version information in package.json
 COPY --chown=superset:superset superset-frontend/package.json superset-frontend/
 COPY --chown=superset:superset requirements/base.txt requirements/
@@ -119,6 +130,13 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Copy the .json translations from the frontend layer
 COPY --chown=superset:superset --from=superset-node /app/superset/translations superset/translations
+
+# Compile translations for the backend - this generates .mo files, then deletes the .po files
+COPY ./scripts/translations/generate_mo_files.sh ./scripts/translations/
+RUN ./scripts/translations/generate_mo_files.sh \
+    && chown -R superset:superset superset/translations \
+    && rm superset/translations/messages.pot \
+    && rm superset/translations/*/LC_MESSAGES/*.po
 
 COPY --chmod=755 ./docker/run-server.sh /usr/bin/
 COPY --chown=superset:superset --chmod=755 ./create_users.sh /usr/bin/

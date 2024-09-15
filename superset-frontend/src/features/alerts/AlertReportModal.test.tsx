@@ -16,13 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React from 'react';
 import userEvent from '@testing-library/user-event';
 import fetchMock from 'fetch-mock';
-import { render, screen, waitFor, within } from 'spec/helpers/testing-library';
+import {
+  render,
+  screen,
+  waitFor,
+  within,
+  waitForElementToBeRemoved,
+} from 'spec/helpers/testing-library';
 import { buildErrorTooltipMessage } from './buildErrorTooltipMessage';
 import AlertReportModal, { AlertReportModalProps } from './AlertReportModal';
-import { AlertObject } from './types';
+import { AlertObject, NotificationMethodOption } from './types';
 
 jest.mock('@superset-ui/core', () => ({
   ...jest.requireActual('@superset-ui/core'),
@@ -31,7 +36,7 @@ jest.mock('@superset-ui/core', () => ({
 
 jest.mock('src/features/databases/state.ts', () => ({
   useCommonConf: () => ({
-    ALERT_REPORTS_NOTIFICATION_METHODS: ['Email', 'Slack'],
+    ALERT_REPORTS_NOTIFICATION_METHODS: ['Email', 'Slack', 'SlackV2'],
   }),
 }));
 
@@ -107,11 +112,18 @@ const ownersEndpoint = 'glob:*/api/v1/alert/related/owners?*';
 const databaseEndpoint = 'glob:*/api/v1/alert/related/database?*';
 const dashboardEndpoint = 'glob:*/api/v1/alert/related/dashboard?*';
 const chartEndpoint = 'glob:*/api/v1/alert/related/chart?*';
+const tabsEndpoint = 'glob:*/api/v1/dashboard/1/tabs';
 
 fetchMock.get(ownersEndpoint, { result: [] });
 fetchMock.get(databaseEndpoint, { result: [] });
 fetchMock.get(dashboardEndpoint, { result: [] });
 fetchMock.get(chartEndpoint, { result: [{ text: 'table chart', value: 1 }] });
+fetchMock.get(tabsEndpoint, {
+  result: {
+    all_tabs: {},
+    tab_tree: [],
+  },
+});
 
 // Create a valid alert with all required fields entered for validation check
 
@@ -136,7 +148,7 @@ const validAlert: AlertObject = {
   ],
   recipients: [
     {
-      type: 'Email',
+      type: NotificationMethodOption.Email,
       recipient_config_json: { target: 'test@user.com' },
     },
   ],
@@ -371,12 +383,15 @@ test('disables condition threshold if not null condition is selected', async () 
   userEvent.click(screen.getByTestId('alert-condition-panel'));
   await screen.findByText(/smaller than/i);
   const condition = screen.getByRole('combobox', { name: /condition/i });
+  const spinButton = screen.getByRole('spinbutton');
+  expect(spinButton).toHaveValue(10);
   await comboboxSelect(
     condition,
     'not null',
     () => screen.getAllByText(/not null/i)[0],
   );
-  expect(screen.getByRole('spinbutton')).toBeDisabled();
+  expect(spinButton).toHaveValue(null);
+  expect(spinButton).toBeDisabled();
 });
 
 // Content Section
@@ -409,6 +424,21 @@ test('renders screenshot options when dashboard is selected', async () => {
       name: /ignore cache when generating report/i,
     }),
   ).toBeInTheDocument();
+});
+
+test('renders tab selection when Dashboard is selected', async () => {
+  render(<AlertReportModal {...generateMockedProps(false, true, true)} />, {
+    useRedux: true,
+  });
+  userEvent.click(screen.getByTestId('contents-panel'));
+  await screen.findByText(/test dashboard/i);
+  expect(
+    screen.getByRole('combobox', { name: /select content type/i }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('combobox', { name: /dashboard/i }),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/select tab/i)).toBeInTheDocument();
 });
 
 test('changes to content options when chart is selected', async () => {
@@ -495,6 +525,7 @@ test('renders default Schedule fields', async () => {
     useRedux: true,
   });
   userEvent.click(screen.getByTestId('schedule-panel'));
+  await waitForElementToBeRemoved(() => screen.queryByLabelText('Loading'));
   const scheduleType = screen.getByRole('combobox', {
     name: /schedule type/i,
   });

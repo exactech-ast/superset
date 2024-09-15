@@ -19,17 +19,20 @@
 
 import pytest
 from flask_appbuilder.security.sqla.models import Role, User
-from pytest_mock import MockFixture
+from pytest_mock import MockerFixture
 
 from superset.common.query_object import QueryObject
 from superset.connectors.sqla.models import Database, SqlaTable
 from superset.exceptions import SupersetSecurityException
 from superset.extensions import appbuilder
 from superset.models.slice import Slice
-from superset.security.manager import SupersetSecurityManager
+from superset.security.manager import (
+    query_context_modified,
+    SupersetSecurityManager,
+)
 from superset.sql_parse import Table
-from superset.superset_typing import AdhocMetric
-from superset.utils.core import override_user
+from superset.superset_typing import AdhocColumn, AdhocMetric
+from superset.utils.core import DatasourceName, override_user
 
 
 def test_security_manager(app_context: None) -> None:
@@ -56,10 +59,24 @@ def stored_metrics() -> list[AdhocMetric]:
     ]
 
 
+@pytest.fixture
+def stored_columns() -> list[AdhocColumn]:
+    """
+    Return a list of columns.
+    """
+    return [
+        {
+            "label": "My column",
+            "sqlExpression": "UPPER(name)",
+        },
+    ]
+
+
 def test_raise_for_access_guest_user_ok(
-    mocker: MockFixture,
+    mocker: MockerFixture,
     app_context: None,
     stored_metrics: list[AdhocMetric],
+    stored_columns: list[AdhocColumn],
 ) -> None:
     """
     Test that guest user can submit an unmodified chart payload.
@@ -73,18 +90,50 @@ def test_raise_for_access_guest_user_ok(
     query_context.slice_.query_context = None
     query_context.slice_.params_dict = {
         "metrics": stored_metrics,
+        "columns": stored_columns,
     }
 
     query_context.form_data = {
         "slice_id": 42,
         "metrics": stored_metrics,
+        "columns": stored_columns,
+    }
+    query_context.queries = [QueryObject(metrics=stored_metrics)]  # type: ignore
+    sm.raise_for_access(query_context=query_context)
+
+
+def test_raise_for_access_guest_user_ok_subset(
+    mocker: MockerFixture,
+    app_context: None,
+    stored_metrics: list[AdhocMetric],
+    stored_columns: list[AdhocColumn],
+) -> None:
+    """
+    Test that guest user can submit a request of a subset of the metrics/columns.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+    mocker.patch.object(sm, "is_guest_user", return_value=True)
+    mocker.patch.object(sm, "can_access", return_value=True)
+
+    query_context = mocker.MagicMock()
+    query_context.slice_.id = 42
+    query_context.slice_.query_context = None
+    query_context.slice_.params_dict = {
+        "metrics": stored_metrics,
+        "columns": stored_columns,
+    }
+
+    query_context.form_data = {
+        "slice_id": 42,
+        "metrics": [],
+        "columns": [],
     }
     query_context.queries = [QueryObject(metrics=stored_metrics)]  # type: ignore
     sm.raise_for_access(query_context=query_context)
 
 
 def test_raise_for_access_guest_user_tampered_id(
-    mocker: MockFixture,
+    mocker: MockerFixture,
     app_context: None,
     stored_metrics: list[AdhocMetric],
 ) -> None:
@@ -111,8 +160,8 @@ def test_raise_for_access_guest_user_tampered_id(
         sm.raise_for_access(query_context=query_context)
 
 
-def test_raise_for_access_guest_user_tampered_form_data(
-    mocker: MockFixture,
+def test_raise_for_access_guest_user_tampered_form_data_metrics(
+    mocker: MockerFixture,
     app_context: None,
     stored_metrics: list[AdhocMetric],
 ) -> None:
@@ -148,8 +197,78 @@ def test_raise_for_access_guest_user_tampered_form_data(
         sm.raise_for_access(query_context=query_context)
 
 
-def test_raise_for_access_guest_user_tampered_queries(
-    mocker: MockFixture,
+def test_raise_for_access_guest_user_tampered_form_data_columns(
+    mocker: MockerFixture,
+    app_context: None,
+    stored_columns: list[AdhocColumn],
+) -> None:
+    """
+    Test that guest user cannot modify columns in the form data.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+    mocker.patch.object(sm, "is_guest_user", return_value=True)
+    mocker.patch.object(sm, "can_access", return_value=True)
+
+    query_context = mocker.MagicMock()
+    query_context.slice_.id = 42
+    query_context.slice_.query_context = None
+    query_context.slice_.params_dict = {
+        "columns": stored_columns,
+    }
+
+    tampered_columns = [
+        {
+            "label": "My column",
+            "sqlExpression": "list_secret()",
+            "expressionType": "SQL",
+        },
+    ]
+
+    query_context.form_data = {
+        "slice_id": 42,
+        "columns": tampered_columns,
+    }
+    with pytest.raises(SupersetSecurityException):
+        sm.raise_for_access(query_context=query_context)
+
+
+def test_raise_for_access_guest_user_tampered_form_data_groupby(
+    mocker: MockerFixture,
+    app_context: None,
+    stored_columns: list[AdhocColumn],
+) -> None:
+    """
+    Test that guest user cannot modify groupby in the form data.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+    mocker.patch.object(sm, "is_guest_user", return_value=True)
+    mocker.patch.object(sm, "can_access", return_value=True)
+
+    query_context = mocker.MagicMock()
+    query_context.slice_.id = 42
+    query_context.slice_.query_context = None
+    query_context.slice_.params_dict = {
+        "groupby": stored_columns,
+    }
+
+    tampered_columns = [
+        {
+            "label": "My column",
+            "sqlExpression": "list_secret()",
+            "expressionType": "SQL",
+        },
+    ]
+
+    query_context.form_data = {
+        "slice_id": 42,
+        "columns": tampered_columns,
+    }
+    with pytest.raises(SupersetSecurityException):
+        sm.raise_for_access(query_context=query_context)
+
+
+def test_raise_for_access_guest_user_tampered_queries_metrics(
+    mocker: MockerFixture,
     app_context: None,
     stored_metrics: list[AdhocMetric],
 ) -> None:
@@ -186,8 +305,44 @@ def test_raise_for_access_guest_user_tampered_queries(
         sm.raise_for_access(query_context=query_context)
 
 
+def test_raise_for_access_guest_user_tampered_queries_columns(
+    mocker: MockerFixture,
+    app_context: None,
+    stored_columns: list[AdhocColumn],
+) -> None:
+    """
+    Test that guest user cannot modify columns in the queries.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+    mocker.patch.object(sm, "is_guest_user", return_value=True)
+    mocker.patch.object(sm, "can_access", return_value=True)
+
+    query_context = mocker.MagicMock()
+    query_context.slice_.id = 42
+    query_context.slice_.query_context = None
+    query_context.slice_.params_dict = {
+        "columns": stored_columns,
+    }
+
+    tampered_columns = [
+        {
+            "label": "My column",
+            "sqlExpression": "list_secret()",
+            "expressionType": "SQL",
+        }
+    ]
+
+    query_context.form_data = {
+        "slice_id": 42,
+        "columns": stored_columns,
+    }
+    query_context.queries = [QueryObject(metrics=tampered_columns)]  # type: ignore
+    with pytest.raises(SupersetSecurityException):
+        sm.raise_for_access(query_context=query_context)
+
+
 def test_raise_for_access_query_default_schema(
-    mocker: MockFixture,
+    mocker: MockerFixture,
     app_context: None,
 ) -> None:
     """
@@ -208,8 +363,10 @@ def test_raise_for_access_query_default_schema(
     SqlaTable.query_datasources_by_name.return_value = []
 
     database = mocker.MagicMock()
+    database.get_default_catalog.return_value = None
     database.get_default_schema_for_query.return_value = "public"
     query = mocker.MagicMock()
+    query.catalog = None
     query.database = database
     query.sql = "SELECT * FROM ab_user"
 
@@ -246,7 +403,7 @@ def test_raise_for_access_query_default_schema(
     )
 
 
-def test_raise_for_access_jinja_sql(mocker: MockFixture, app_context: None) -> None:
+def test_raise_for_access_jinja_sql(mocker: MockerFixture, app_context: None) -> None:
     """
     Test that Jinja gets rendered to SQL.
     """
@@ -262,8 +419,10 @@ def test_raise_for_access_jinja_sql(mocker: MockFixture, app_context: None) -> N
     SqlaTable.query_datasources_by_name.return_value = []
 
     database = mocker.MagicMock()
+    database.get_default_catalog.return_value = None
     database.get_default_schema_for_query.return_value = "public"
     query = mocker.MagicMock()
+    query.catalog = None
     query.database = database
     query.sql = "SELECT * FROM {% if True %}ab_user{% endif %} WHERE 1=1"
 
@@ -277,11 +436,11 @@ def test_raise_for_access_jinja_sql(mocker: MockFixture, app_context: None) -> N
             viz=None,
         )
 
-    get_table_access_error_object.assert_called_with({Table("ab_user", "public")})
+    get_table_access_error_object.assert_called_with({Table("ab_user", "public", None)})
 
 
 def test_raise_for_access_chart_for_datasource_permission(
-    mocker: MockFixture,
+    mocker: MockerFixture,
     app_context: None,
 ) -> None:
     """
@@ -408,9 +567,269 @@ def test_raise_for_access_chart_owner(
         owners=[alpha],
     )
     session.add(slice)
-    session.flush()
 
     with override_user(alpha):
         sm.raise_for_access(
             chart=slice,
         )
+
+
+def test_query_context_modified(
+    mocker: MockerFixture,
+    stored_metrics: list[AdhocMetric],
+) -> None:
+    """
+    Test the `query_context_modified` function.
+
+    The function is used to ensure guest users are not modifying the request payload on
+    embedded dashboard, preventing users from modifying it to access metrics different
+    from the ones stored in dashboard charts.
+    """
+    query_context = mocker.MagicMock()
+    query_context.slice_.id = 42
+    query_context.slice_.query_context = None
+    query_context.slice_.params_dict = {
+        "metrics": stored_metrics,
+    }
+
+    query_context.form_data = {
+        "slice_id": 42,
+        "metrics": stored_metrics,
+    }
+    query_context.queries = [QueryObject(metrics=stored_metrics)]  # type: ignore
+    assert not query_context_modified(query_context)
+
+
+def test_query_context_modified_tampered(
+    mocker: MockerFixture,
+    stored_metrics: list[AdhocMetric],
+) -> None:
+    """
+    Test the `query_context_modified` function when the request is tampered with.
+
+    The function is used to ensure guest users are not modifying the request payload on
+    embedded dashboard, preventing users from modifying it to access metrics different
+    from the ones stored in dashboard charts.
+    """
+    query_context = mocker.MagicMock()
+    query_context.slice_.id = 42
+    query_context.slice_.query_context = None
+    query_context.slice_.params_dict = {
+        "metrics": stored_metrics,
+    }
+
+    tampered_metrics = [
+        {
+            "column": None,
+            "expressionType": "SQL",
+            "hasCustomLabel": False,
+            "label": "COUNT(*) + 2",
+            "sqlExpression": "COUNT(*) + 2",
+        }
+    ]
+
+    query_context.form_data = {
+        "slice_id": 42,
+        "metrics": tampered_metrics,
+    }
+    query_context.queries = [QueryObject(metrics=tampered_metrics)]  # type: ignore
+    assert query_context_modified(query_context)
+
+
+def test_query_context_modified_native_filter(mocker: MockerFixture) -> None:
+    """
+    Test the `query_context_modified` function with a native filter request.
+
+    A native filter request has no chart (slice) associated with it.
+    """
+    query_context = mocker.MagicMock()
+    query_context.slice_ = None
+
+    assert not query_context_modified(query_context)
+
+
+def test_query_context_modified_mixed_chart(mocker: MockerFixture) -> None:
+    """
+    Test the `query_context_modified` function for a mixed chart request.
+
+    The metrics in the mixed chart are a nested dictionary (due to `columns`), and need
+    to be serialized to JSON with the keys sorted in order to compare the request
+    metrics with the chart metrics.
+    """
+    stored_metrics = [
+        {
+            "optionName": "metric_vgops097wej_g8uff99zhk7",
+            "label": "AVG(num)",
+            "expressionType": "SIMPLE",
+            "column": {"column_name": "num", "type": "BIGINT(20)"},
+            "aggregate": "AVG",
+        }
+    ]
+    # different order (remember, dicts have order!)
+    requested_metrics = [
+        {
+            "aggregate": "AVG",
+            "column": {"column_name": "num", "type": "BIGINT(20)"},
+            "expressionType": "SIMPLE",
+            "label": "AVG(num)",
+            "optionName": "metric_vgops097wej_g8uff99zhk7",
+        }
+    ]
+
+    query_context = mocker.MagicMock()
+    query_context.slice_.id = 42
+    query_context.slice_.query_context = None
+    query_context.slice_.params_dict = {
+        "metrics": stored_metrics,
+    }
+
+    query_context.form_data = {
+        "slice_id": 42,
+        "metrics": requested_metrics,
+    }
+    query_context.queries = [QueryObject(metrics=requested_metrics)]  # type: ignore
+    assert not query_context_modified(query_context)
+
+
+def test_get_catalog_perm() -> None:
+    """
+    Test the `get_catalog_perm` method.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+
+    assert sm.get_catalog_perm("my_db", None) is None
+    assert sm.get_catalog_perm("my_db", "my_catalog") == "[my_db].[my_catalog]"
+
+
+def test_get_schema_perm() -> None:
+    """
+    Test the `get_schema_perm` method.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+
+    assert sm.get_schema_perm("my_db", None, "my_schema") == "[my_db].[my_schema]"
+    assert (
+        sm.get_schema_perm("my_db", "my_catalog", "my_schema")
+        == "[my_db].[my_catalog].[my_schema]"
+    )
+    assert sm.get_schema_perm("my_db", None, None) is None
+    assert sm.get_schema_perm("my_db", "my_catalog", None) is None
+
+
+def test_raise_for_access_catalog(
+    mocker: MockerFixture,
+    app_context: None,
+) -> None:
+    """
+    Test catalog-level permissions.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+    mocker.patch.object(sm, "can_access_database", return_value=False)
+    mocker.patch.object(
+        sm,
+        "get_catalog_perm",
+        return_value="[PostgreSQL].[db1]",
+    )
+    mocker.patch.object(sm, "is_guest_user", return_value=False)
+    SqlaTable = mocker.patch("superset.connectors.sqla.models.SqlaTable")
+    SqlaTable.query_datasources_by_name.return_value = []
+
+    database = mocker.MagicMock()
+    database.get_default_catalog.return_value = "db1"
+    database.get_default_schema_for_query.return_value = "public"
+    query = mocker.MagicMock()
+    query.catalog = "db1"
+    query.database = database
+    query.sql = "SELECT * FROM ab_user"
+
+    can_access = mocker.patch.object(sm, "can_access", return_value=True)
+    sm.raise_for_access(query=query)
+    can_access.assert_called_with("catalog_access", "[PostgreSQL].[db1]")
+
+    mocker.patch.object(sm, "can_access", return_value=False)
+    with pytest.raises(SupersetSecurityException) as excinfo:
+        sm.raise_for_access(query=query)
+    assert (
+        str(excinfo.value)
+        == """You need access to the following tables: `db1.public.ab_user`,
+            `all_database_access` or `all_datasource_access` permission"""
+    )
+
+    query.sql = "SELECT * FROM db2.public.ab_user"
+    with pytest.raises(SupersetSecurityException) as excinfo:
+        sm.raise_for_access(query=query)
+    assert (
+        str(excinfo.value)
+        == """You need access to the following tables: `db2.public.ab_user`,
+            `all_database_access` or `all_datasource_access` permission"""
+    )
+
+
+def test_get_datasources_accessible_by_user_schema_access(
+    mocker: MockerFixture,
+    app_context: None,
+) -> None:
+    """
+    Test that `get_datasources_accessible_by_user` works with schema permissions.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+    mocker.patch.object(sm, "can_access_database", return_value=False)
+
+    database = mocker.MagicMock()
+    database.database_name = "db1"
+    database.get_default_catalog.return_value = "catalog2"
+
+    # False for catalog_access, True for schema_access
+    can_access = mocker.patch.object(sm, "can_access", side_effect=[False, True])
+
+    datasource_names = [
+        DatasourceName("table1", "schema1", "catalog2"),
+        DatasourceName("table2", "schema1", "catalog2"),
+    ]
+
+    assert sm.get_datasources_accessible_by_user(
+        database,
+        datasource_names,
+        catalog=None,
+        schema="schema1",
+    ) == [
+        DatasourceName("table1", "schema1", "catalog2"),
+        DatasourceName("table2", "schema1", "catalog2"),
+    ]
+
+    # Even though we passed `catalog=None,` the schema check uses the default catalog
+    # when building the schema permission, since the DB supports catalog.
+    can_access.assert_has_calls(
+        [
+            mocker.call("catalog_access", "[db1].[catalog2]"),
+            mocker.call("schema_access", "[db1].[catalog2].[schema1]"),
+        ]
+    )
+
+
+def test_get_catalogs_accessible_by_user_schema_access(
+    mocker: MockerFixture,
+    app_context: None,
+) -> None:
+    """
+    Test that `get_catalogs_accessible_by_user` works with schema permissions.
+    """
+    sm = SupersetSecurityManager(appbuilder)
+    mocker.patch.object(sm, "can_access_database", return_value=False)
+    mocker.patch.object(
+        sm,
+        "user_view_menu_names",
+        side_effect=[
+            set(),  # catalog_access
+            {"[db1].[catalog2].[schema1]"},  # schema_access
+            set(),  # datasource_access
+        ],
+    )
+
+    database = mocker.MagicMock()
+    database.database_name = "db1"
+    database.get_default_catalog.return_value = "catalog2"
+
+    catalogs = {"catalog1", "catalog2"}
+
+    assert sm.get_catalogs_accessible_by_user(database, catalogs) == {"catalog2"}
