@@ -94,6 +94,13 @@ ENV LANG=C.UTF-8 \
     SUPERSET_HOME="/app/superset_home" \
     SUPERSET_PORT=8088
 
+
+# Install Prophet dependencies
+RUN apt-get update -qq && apt-get install -yqq --no-install-recommends \
+    libatlas-base-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN mkdir -p ${PYTHONPATH} superset/static requirements superset-frontend apache_superset.egg-info requirements \
     && useradd --user-group -d ${SUPERSET_HOME} -m --no-log-init --shell /bin/bash superset \
     && apt-get update -qq && apt-get install -yqq --no-install-recommends \
@@ -117,6 +124,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       build-essential \
     && pip install --upgrade setuptools pip \
     && pip install -r requirements/base.txt \
+    && pip install prophet \
     && apt-get autoremove -yqq --purge build-essential \
     && rm -rf /var/lib/apt/lists/*
 
