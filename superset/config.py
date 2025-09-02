@@ -354,24 +354,25 @@ AUTH_TYPE = AUTH_OAUTH
 
 OAUTH_PROVIDERS = [
     {
-        'name':'azure',
-        'icon':'fa-windows',
-        'token_key':'access_token',
-        'remote_app':{
-            'client_id':'a672ffa0-cef3-4fa4-bf4a-06c25c6ac88c',
-            'client_secret':'sH~8Q~bDj7jjYfJaVIY5M_3fjGCtaVrjd0CTWb4~',
-            'api_base_url':'https://login.microsoftonline.com/9adaab1d-bd58-40a7-9255-69ab5f6c3189/oauth2',
-            'client_kwargs':{
+        'name': 'azure',
+        'icon': 'fa-windows',
+        'token_key': 'access_token',
+        'remote_app': {
+            'client_id': os.getenv('AZURE_CLIENT_ID'),
+            'client_secret': os.getenv('AZURE_CLIENT_SECRET'), 
+            'api_base_url': 'https://login.microsoftonline.com/{}/oauth2'.format(os.getenv('AZURE_TENANT_ID')),
+            'client_kwargs': {
                 'scope': 'User.read name preferred_username email profile upn',
-                "resource": "a672ffa0-cef3-4fa4-bf4a-06c25c6ac88c",
-                "verify_signature": False
+                'resource': os.getenv('AZURE_RESOURCE'),
+                'verify_signature': False
             },
-            "request_token_url": None,
-            'access_token_url':'https://login.microsoftonline.com/9adaab1d-bd58-40a7-9255-69ab5f6c3189/oauth2/token',
-            'authorize_url':'https://login.microsoftonline.com/9adaab1d-bd58-40a7-9255-69ab5f6c3189/oauth2/authorize',
+            'request_token_url': None,
+            'access_token_url': 'https://login.microsoftonline.com/{}/oauth2/token'.format(os.getenv('AZURE_TENANT_ID')),
+            'authorize_url': 'https://login.microsoftonline.com/{}/oauth2/authorize'.format(os.getenv('AZURE_TENANT_ID')),
         },
     },
 ]
+
 
 # Uncomment to setup Full admin role name
 # AUTH_ROLE_ADMIN = 'Admin'
