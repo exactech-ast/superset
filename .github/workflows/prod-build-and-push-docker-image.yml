@@ -27,5 +27,4 @@ jobs:
 
     - name: Build and Push Docker Image
       run: |
-        docker build -t irisdevacr.azurecr.io/exactech-superset:${{ github.sha }} .
-        docker push irisdevacr.azurecr.io/exactech-superset:${{ github.sha }}
+        docker buildx build --platform linux/amd64 --push -t irisdevacr.azurecr.io/exactech-superset:${{ github.sha }} .
